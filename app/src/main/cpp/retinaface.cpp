@@ -8,10 +8,12 @@
 RetinaFaceNet::RetinaFaceNet(const string &model_path) {
 
 	std::vector<std::string> param_files = {
-		model_path+"/mnet.25-opt.param",
+//		model_path+"/mnet.25-opt.param",
+		model_path+"/mnet_detect_ncnn.param",
 	};
 	std::vector<std::string> bin_files = {
-		model_path+"/mnet.25-opt.bin",
+//		model_path+"/mnet.25-opt.bin",
+		model_path+"/mnet_detect_ncnn.bin",
 	};
 
 	//init

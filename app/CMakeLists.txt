@@ -22,6 +22,7 @@ add_library(retinaface SHARED ${RETINAFACE_COMPILE_CODE})
 #添加工程所依赖的库
 find_library(  log-lib log )
 target_link_libraries( retinaface
+        android
                        libncnn
                        jnigraphics
                        z

@@ -85,7 +85,8 @@
             android:checked="false"
             android:text="只检测最大人脸："
             android:textOff="只检测最大人脸：关"
-            android:textOn="只检测最大人脸：开" />
+            android:textOn="只检测最大人脸：开"
+            android:visibility="gone"/>
     </LinearLayout>
 
     <TextView

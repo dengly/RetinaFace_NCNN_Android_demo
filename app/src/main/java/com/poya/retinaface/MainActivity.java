@@ -95,7 +95,8 @@ public class MainActivity extends Activity {
 
             copyBigDataToSD("mnet.25-opt.bin");
             copyBigDataToSD("mnet.25-opt.param");
-
+            copyBigDataToSD("mnet_detect_ncnn.param");
+            copyBigDataToSD("mnet_detect_ncnn.bin");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -175,14 +176,14 @@ public class MainActivity extends Activity {
                     //faceInfo = mtcnn.FaceDetect(imageDate, width, height, 4);
                     faceInfo = retinaface.FaceDetect(imageDate, width, height, 4);
                     Log.i(TAG, "检测所有人脸");
-                }
-                else{
+                } else{
+                    // 只检测最大人脸
                     //faceInfo = mtcnn.MaxFaceDetect(imageDate, width, height, 4);
                     Log.i(TAG, "检测最大人脸");
                 }
                 timeDetectFace = System.currentTimeMillis() - timeDetectFace;
                 //Log.i(TAG, "人脸平均检测时间："+timeDetectFace/testTimeCount);
-                Log.i(TAG, "人脸检测时间：" + timeDetectFace );
+                Log.i(TAG, "人脸检测时间：" + timeDetectFace +" ms" );
 
                if(faceInfo!=null && faceInfo.length>1){
                    int faceNum = faceInfo[0];
