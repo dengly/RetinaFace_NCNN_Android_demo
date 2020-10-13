@@ -25,4 +25,5 @@ target_link_libraries( retinaface
                        libncnn
                        jnigraphics
                        z
+                       -static-openmp -fopenmp
                        ${log-lib} )

@@ -184,7 +184,7 @@ public class MainActivity extends Activity {
                 //Log.i(TAG, "人脸平均检测时间："+timeDetectFace/testTimeCount);
                 Log.i(TAG, "人脸检测时间：" + timeDetectFace );
 
-               if(faceInfo.length>1){
+               if(faceInfo!=null && faceInfo.length>1){
                    int faceNum = faceInfo[0];
                    //infoResult.setText("图宽："+width+"高："+height+"人脸平均检测时间："+timeDetectFace/testTimeCount+" 数目：" + faceNum);
                    infoResult.setText("图宽:"+width+" 图高:"+height+" 线程数:"+ threadsNumber +" 检测时间:"+ timeDetectFace +" 人脸数目:" + faceNum);
