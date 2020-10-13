@@ -79,7 +79,7 @@ Java_com_poya_retinaface_RetinaFace_SetThreadsNumber(JNIEnv *env, jobject instan
         return false;
     }
 
-    if(threadsNumber!=1&&threadsNumber!=2&&threadsNumber!=4&&threadsNumber!=8){
+    if(threadsNumber !=1 && threadsNumber !=2 && threadsNumber != 4 && threadsNumber != 8){
         LOGD("线程只能设置1，2，4，8");
         return false;
     }
@@ -101,8 +101,7 @@ Java_com_poya_retinaface_RetinaFace_FaceDetect(JNIEnv *env, jobject instance, jb
     int tImageDateLen = env->GetArrayLength(imageDate_);
     if(imageChannel == tImageDateLen / imageWidth / imageHeight){
         LOGD("数据宽=%d,高=%d,通道=%d",imageWidth,imageHeight,imageChannel);
-    }
-    else{
+    } else {
         LOGD("数据长宽高通道不匹配，直接返回空");
         return NULL;
     }
@@ -114,7 +113,7 @@ Java_com_poya_retinaface_RetinaFace_FaceDetect(JNIEnv *env, jobject instance, jb
         return NULL;
     }
 
-    if(imageWidth<20||imageHeight<20){
+    if(imageWidth<20 || imageHeight<20){
         LOGD("导入数据的宽和高小于20，直接返回空");
         env->ReleaseByteArrayElements(imageDate_, imageDate, 0);
         return NULL;
@@ -129,25 +128,18 @@ Java_com_poya_retinaface_RetinaFace_FaceDetect(JNIEnv *env, jobject instance, jb
         return NULL;
     }
 
-    //int32_t minFaceSize=40;
-    //mtcnn->SetMinFace(minFaceSize);
-
     unsigned char *faceImageCharDate = (unsigned char*)imageDate;
     ncnn::Mat ncnn_img;
     if(imageChannel==3) {
-       ncnn_img = ncnn::Mat::from_pixels(faceImageCharDate, ncnn::Mat::PIXEL_BGR2RGB,
-                                                    imageWidth, imageHeight);
+       ncnn_img = ncnn::Mat::from_pixels(faceImageCharDate, ncnn::Mat::PIXEL_BGR2RGB, imageWidth, imageHeight);
     }else{
-        //ncnn_img = ncnn::Mat::from_pixels(faceImageCharDate, ncnn::Mat::PIXEL_RGBA2RGB, imageWidth, imageHeight);
         ncnn_img = ncnn::Mat::from_pixels(faceImageCharDate, ncnn::Mat::PIXEL_RGBA2RGB, imageWidth, imageHeight);
     }
 
-    //std::vector<Bbox> finalBbox;
     std::vector<FaceObject> faceobjects;
 
     retinafacenet->detect(ncnn_img, faceobjects);
 
-    //int32_t num_face = static_cast<int32_t>(finalBbox.size());
     int32_t num_face = static_cast<int32_t>(faceobjects.size());
     LOGD("检测到的人脸数目----：%d\n", num_face);
 
@@ -158,18 +150,14 @@ Java_com_poya_retinaface_RetinaFace_FaceDetect(JNIEnv *env, jobject instance, jb
 
     faceInfo[0] = num_face;
     LOGD("检测到的人脸数目faceInfo[0] = %d\n", faceInfo[0]);
-    LOGD("检测到的人脸数目faceInfo.size = %d\n", sizeof(faceInfo)/sizeof(faceInfo[0]) );
+    if(num_face > 0){
+        LOGD("检测到的人脸数目faceInfo.size = %d\n", sizeof(faceInfo)/sizeof(faceInfo[0]) );
+        LOGD("landmark[0].x = %d\n", static_cast<int>(faceobjects[0].landmark[0].x));
+        LOGD("landmark[0].y = %d\n", static_cast<int>(faceobjects[0].landmark[0].y));
 
-    LOGD("landmark[0].x = %d\n", static_cast<int>(faceobjects[0].landmark[0].x));
-    LOGD("landmark[0].y = %d\n", static_cast<int>(faceobjects[0].landmark[0].y));
-
-    LOGD("landmark[4].x = %d\n", faceobjects[0].landmark[4].x);
-    LOGD("landmark[4].y = %d\n", faceobjects[0].landmark[4].y);
-
-    //faceobjects[0].landmark[0].x ;
-
-    //(*faceobjects[0])->
-
+        LOGD("landmark[4].x = %d\n", faceobjects[0].landmark[4].x);
+        LOGD("landmark[4].y = %d\n", faceobjects[0].landmark[4].y);
+    }
 
     for(int i=0;i<num_face;i++){
 
@@ -197,11 +185,6 @@ Java_com_poya_retinaface_RetinaFace_FaceDetect(JNIEnv *env, jobject instance, jb
         faceInfo[14*i+12] = static_cast<int>(faceobjects[i].landmark[2].y);
         faceInfo[14*i+13] = static_cast<int>(faceobjects[i].landmark[3].y);
         faceInfo[14*i+14] = static_cast<int>(faceobjects[i].landmark[4].y);
-
-//		for (int j =0;j<5;j++){
-//            faceInfo[14*i+5 + 2*j]    =static_cast<int>(faceobjects[i].landmark[j].x);
-//			faceInfo[14*i+5 + 2*j + 1]=static_cast<int>(faceobjects[i].landmark[j].y);
-//        }
     }
 	
     jintArray tFaceInfo = env->NewIntArray(out_size);

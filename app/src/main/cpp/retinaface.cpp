@@ -7,18 +7,26 @@
 //init
 RetinaFaceNet::RetinaFaceNet(const string &model_path) {
 
-	std::vector<std::string> param_files = {
-//		model_path+"/mnet.25-opt.param",
-		model_path+"/mnet_detect_ncnn.param",
-	};
-	std::vector<std::string> bin_files = {
-//		model_path+"/mnet.25-opt.bin",
-		model_path+"/mnet_detect_ncnn.bin",
-	};
+    std::vector<std::string> param_files = {
+            // 网友的
+//            model_path+"/mnet.25-opt.param",
+//            model_path+"/mnet25_detect_ncnn.param",
 
-	//init
-	retinaface.load_param(param_files[0].data());
-	retinaface.load_model(bin_files[0].data());
+            //自己训练的
+		model_path+"/mnet_detect_ncnn.param",
+    };
+    std::vector<std::string> bin_files = {
+            // 网友的
+//            model_path+"/mnet.25-opt.bin",
+//            model_path+"/mnet25_detect_ncnn.bin",
+
+            //自己训练的
+		model_path+"/mnet_detect_ncnn.bin",
+    };
+
+    //init
+    retinaface.load_param(param_files[0].data());
+    retinaface.load_model(bin_files[0].data());
 }
 
 RetinaFaceNet::~RetinaFaceNet(){
@@ -26,34 +34,26 @@ RetinaFaceNet::~RetinaFaceNet(){
 }
 
 void RetinaFaceNet::SetNumThreads(int numThreads){
-	num_threads = numThreads;
+    num_threads = numThreads;
 }
 
-void RetinaFaceNet::detect(ncnn::Mat& bgr, std::vector<FaceObject>& faceobjects)
+void RetinaFaceNet::detect(ncnn::Mat& rgb, std::vector<FaceObject>& faceobjects)
 {
-    //ncnn::Net retinaface;
 
 #if NCNN_VULKAN
     retinaface.opt.use_vulkan_compute = true;
 #endif // NCNN_VULKAN
 
-    //retinaface.load_param("mnet.25-opt.param");
-    //retinaface.load_model("mnet.25-opt.bin");
-
     const float prob_threshold = 0.8f;
     const float nms_threshold = 0.4f;
 
-    //int img_w = bgr.cols;
-    //int img_h = bgr.rows;
-    //ncnn::Mat in = ncnn::Mat::from_pixels(bgr.data, ncnn::Mat::PIXEL_BGR2RGB, img_w, img_h);
-
-    int img_w = bgr.w;
-    int img_h = bgr.h;
+    int img_w = rgb.w;
+    int img_h = rgb.h;
 
     ncnn::Extractor ex = retinaface.create_extractor();
     ex.set_num_threads(num_threads);
     //ex.input("data", in);
-    ex.input("data", bgr);
+    ex.input("data", rgb);
 
     std::vector<FaceObject> faceproposals;
 
@@ -161,208 +161,208 @@ void RetinaFaceNet::detect(ncnn::Mat& bgr, std::vector<FaceObject>& faceobjects)
 //以下为detect的支撑函数
 inline float RetinaFaceNet::intersection_area(const FaceObject& a, const FaceObject& b)
 {
-	//cv::Rect_<float> inter = a.rect & b.rect;
+    //cv::Rect_<float> inter = a.rect & b.rect;
     Rect2f inter = a.rect & b.rect;
-	return inter.area();
+    return inter.area();
 }
 
 void RetinaFaceNet::qsort_descent_inplace(std::vector<FaceObject>& faceobjects, int left, int right)
 {
-	int i = left;
-	int j = right;
-	float p = faceobjects[(left + right) / 2].prob;
+    int i = left;
+    int j = right;
+    float p = faceobjects[(left + right) / 2].prob;
 
-	while (i <= j)
-	{
-		while (faceobjects[i].prob > p)
-			i++;
+    while (i <= j)
+    {
+        while (faceobjects[i].prob > p)
+            i++;
 
-		while (faceobjects[j].prob < p)
-			j--;
+        while (faceobjects[j].prob < p)
+            j--;
 
-		if (i <= j)
-		{
-			// swap
-			std::swap(faceobjects[i], faceobjects[j]);
+        if (i <= j)
+        {
+            // swap
+            std::swap(faceobjects[i], faceobjects[j]);
 
-			i++;
-			j--;
-		}
-	}
+            i++;
+            j--;
+        }
+    }
 
 #pragma omp parallel sections
-	{
+    {
 #pragma omp section
-		{
-			if (left < j) qsort_descent_inplace(faceobjects, left, j);
-		}
+        {
+            if (left < j) qsort_descent_inplace(faceobjects, left, j);
+        }
 #pragma omp section
-		{
-			if (i < right) qsort_descent_inplace(faceobjects, i, right);
-		}
-	}
+        {
+            if (i < right) qsort_descent_inplace(faceobjects, i, right);
+        }
+    }
 }
 
 
 void RetinaFaceNet::qsort_descent_inplace(std::vector<FaceObject>& faceobjects)
 {
-	if (faceobjects.empty())
-		return;
+    if (faceobjects.empty())
+        return;
 
-	qsort_descent_inplace(faceobjects, 0, faceobjects.size() - 1);
+    qsort_descent_inplace(faceobjects, 0, faceobjects.size() - 1);
 }
 
 void RetinaFaceNet::nms_sorted_bboxes(const std::vector<FaceObject>& faceobjects, std::vector<int>& picked, float nms_threshold)
 {
-	picked.clear();
+    picked.clear();
 
-	const int n = faceobjects.size();
+    const int n = faceobjects.size();
 
-	std::vector<float> areas(n);
-	for (int i = 0; i < n; i++)
-	{
-		areas[i] = faceobjects[i].rect.area();
-	}
+    std::vector<float> areas(n);
+    for (int i = 0; i < n; i++)
+    {
+        areas[i] = faceobjects[i].rect.area();
+    }
 
-	for (int i = 0; i < n; i++)
-	{
-		const FaceObject& a = faceobjects[i];
+    for (int i = 0; i < n; i++)
+    {
+        const FaceObject& a = faceobjects[i];
 
-		int keep = 1;
-		for (int j = 0; j < (int)picked.size(); j++)
-		{
-			const FaceObject& b = faceobjects[picked[j]];
+        int keep = 1;
+        for (int j = 0; j < (int)picked.size(); j++)
+        {
+            const FaceObject& b = faceobjects[picked[j]];
 
-			// intersection over union
-			float inter_area = intersection_area(a, b);
-			float union_area = areas[i] + areas[picked[j]] - inter_area;
-			//             float IoU = inter_area / union_area
-			if (inter_area / union_area > nms_threshold)
-				keep = 0;
-		}
+            // intersection over union
+            float inter_area = intersection_area(a, b);
+            float union_area = areas[i] + areas[picked[j]] - inter_area;
+            //             float IoU = inter_area / union_area
+            if (inter_area / union_area > nms_threshold)
+                keep = 0;
+        }
 
-		if (keep)
-			picked.push_back(i);
-	}
+        if (keep)
+            picked.push_back(i);
+    }
 }
 
 // copy from src/layer/proposal.cpp
 ncnn::Mat RetinaFaceNet::generate_anchors(int base_size, const ncnn::Mat& ratios, const ncnn::Mat& scales)
 {
-	int num_ratio = ratios.w;
-	int num_scale = scales.w;
+    int num_ratio = ratios.w;
+    int num_scale = scales.w;
 
-	ncnn::Mat anchors;
-	anchors.create(4, num_ratio * num_scale);
+    ncnn::Mat anchors;
+    anchors.create(4, num_ratio * num_scale);
 
-	const float cx = base_size * 0.5f;
-	const float cy = base_size * 0.5f;
+    const float cx = base_size * 0.5f;
+    const float cy = base_size * 0.5f;
 
-	for (int i = 0; i < num_ratio; i++)
-	{
-		float ar = ratios[i];
+    for (int i = 0; i < num_ratio; i++)
+    {
+        float ar = ratios[i];
 
-		int r_w = round(base_size / sqrt(ar));
-		int r_h = round(r_w * ar);//round(base_size * sqrt(ar));
+        int r_w = round(base_size / sqrt(ar));
+        int r_h = round(r_w * ar);//round(base_size * sqrt(ar));
 
-		for (int j = 0; j < num_scale; j++)
-		{
-			float scale = scales[j];
+        for (int j = 0; j < num_scale; j++)
+        {
+            float scale = scales[j];
 
-			float rs_w = r_w * scale;
-			float rs_h = r_h * scale;
+            float rs_w = r_w * scale;
+            float rs_h = r_h * scale;
 
-			float* anchor = anchors.row(i * num_scale + j);
+            float* anchor = anchors.row(i * num_scale + j);
 
-			anchor[0] = cx - rs_w * 0.5f;
-			anchor[1] = cy - rs_h * 0.5f;
-			anchor[2] = cx + rs_w * 0.5f;
-			anchor[3] = cy + rs_h * 0.5f;
-		}
-	}
+            anchor[0] = cx - rs_w * 0.5f;
+            anchor[1] = cy - rs_h * 0.5f;
+            anchor[2] = cx + rs_w * 0.5f;
+            anchor[3] = cy + rs_h * 0.5f;
+        }
+    }
 
-	return anchors;
+    return anchors;
 }
 
 void RetinaFaceNet::generate_proposals(const ncnn::Mat& anchors, int feat_stride, const ncnn::Mat& score_blob, const ncnn::Mat& bbox_blob, const ncnn::Mat& landmark_blob, float prob_threshold, std::vector<FaceObject>& faceobjects)
 {
-	int w = score_blob.w;
-	int h = score_blob.h;
+    int w = score_blob.w;
+    int h = score_blob.h;
 
-	// generate face proposal from bbox deltas and shifted anchors
-	const int num_anchors = anchors.h;
+    // generate face proposal from bbox deltas and shifted anchors
+    const int num_anchors = anchors.h;
 
-	for (int q = 0; q<num_anchors; q++)
-	{
-		const float* anchor = anchors.row(q);
+    for (int q = 0; q<num_anchors; q++)
+    {
+        const float* anchor = anchors.row(q);
 
-		const ncnn::Mat score = score_blob.channel(q + num_anchors);
-		const ncnn::Mat bbox = bbox_blob.channel_range(q * 4, 4);
-		const ncnn::Mat landmark = landmark_blob.channel_range(q * 10, 10);
+        const ncnn::Mat score = score_blob.channel(q + num_anchors);
+        const ncnn::Mat bbox = bbox_blob.channel_range(q * 4, 4);
+        const ncnn::Mat landmark = landmark_blob.channel_range(q * 10, 10);
 
-		// shifted anchor
-		float anchor_y = anchor[1];
+        // shifted anchor
+        float anchor_y = anchor[1];
 
-		float anchor_w = anchor[2] - anchor[0];
-		float anchor_h = anchor[3] - anchor[1];
+        float anchor_w = anchor[2] - anchor[0];
+        float anchor_h = anchor[3] - anchor[1];
 
-		for (int i = 0; i<h; i++)
-		{
-			float anchor_x = anchor[0];
+        for (int i = 0; i<h; i++)
+        {
+            float anchor_x = anchor[0];
 
-			for (int j = 0; j<w; j++)
-			{
-				int index = i * w + j;
+            for (int j = 0; j<w; j++)
+            {
+                int index = i * w + j;
 
-				float prob = score[index];
+                float prob = score[index];
 
-				if (prob >= prob_threshold)
-				{
-					// apply center size
-					float dx = bbox.channel(0)[index];
-					float dy = bbox.channel(1)[index];
-					float dw = bbox.channel(2)[index];
-					float dh = bbox.channel(3)[index];
+                if (prob >= prob_threshold)
+                {
+                    // apply center size
+                    float dx = bbox.channel(0)[index];
+                    float dy = bbox.channel(1)[index];
+                    float dw = bbox.channel(2)[index];
+                    float dh = bbox.channel(3)[index];
 
-					float cx = anchor_x + anchor_w * 0.5f;
-					float cy = anchor_y + anchor_h * 0.5f;
+                    float cx = anchor_x + anchor_w * 0.5f;
+                    float cy = anchor_y + anchor_h * 0.5f;
 
-					float pb_cx = cx + anchor_w * dx;
-					float pb_cy = cy + anchor_h * dy;
+                    float pb_cx = cx + anchor_w * dx;
+                    float pb_cy = cy + anchor_h * dy;
 
-					float pb_w = anchor_w * exp(dw);
-					float pb_h = anchor_h * exp(dh);
+                    float pb_w = anchor_w * exp(dw);
+                    float pb_h = anchor_h * exp(dh);
 
-					float x0 = pb_cx - pb_w * 0.5f;
-					float y0 = pb_cy - pb_h * 0.5f;
-					float x1 = pb_cx + pb_w * 0.5f;
-					float y1 = pb_cy + pb_h * 0.5f;
+                    float x0 = pb_cx - pb_w * 0.5f;
+                    float y0 = pb_cy - pb_h * 0.5f;
+                    float x1 = pb_cx + pb_w * 0.5f;
+                    float y1 = pb_cy + pb_h * 0.5f;
 
-					FaceObject obj;
-					obj.rect.x = x0;
-					obj.rect.y = y0;
-					obj.rect.width = x1 - x0 + 1;
-					obj.rect.height = y1 - y0 + 1;
-					obj.landmark[0].x = cx + (anchor_w + 1) * landmark.channel(0)[index];
-					obj.landmark[0].y = cy + (anchor_h + 1) * landmark.channel(1)[index];
-					obj.landmark[1].x = cx + (anchor_w + 1) * landmark.channel(2)[index];
-					obj.landmark[1].y = cy + (anchor_h + 1) * landmark.channel(3)[index];
-					obj.landmark[2].x = cx + (anchor_w + 1) * landmark.channel(4)[index];
-					obj.landmark[2].y = cy + (anchor_h + 1) * landmark.channel(5)[index];
-					obj.landmark[3].x = cx + (anchor_w + 1) * landmark.channel(6)[index];
-					obj.landmark[3].y = cy + (anchor_h + 1) * landmark.channel(7)[index];
-					obj.landmark[4].x = cx + (anchor_w + 1) * landmark.channel(8)[index];
-					obj.landmark[4].y = cy + (anchor_h + 1) * landmark.channel(9)[index];
-					obj.prob = prob;
+                    FaceObject obj;
+                    obj.rect.x = x0;
+                    obj.rect.y = y0;
+                    obj.rect.width = x1 - x0 + 1;
+                    obj.rect.height = y1 - y0 + 1;
+                    obj.landmark[0].x = cx + (anchor_w + 1) * landmark.channel(0)[index];
+                    obj.landmark[0].y = cy + (anchor_h + 1) * landmark.channel(1)[index];
+                    obj.landmark[1].x = cx + (anchor_w + 1) * landmark.channel(2)[index];
+                    obj.landmark[1].y = cy + (anchor_h + 1) * landmark.channel(3)[index];
+                    obj.landmark[2].x = cx + (anchor_w + 1) * landmark.channel(4)[index];
+                    obj.landmark[2].y = cy + (anchor_h + 1) * landmark.channel(5)[index];
+                    obj.landmark[3].x = cx + (anchor_w + 1) * landmark.channel(6)[index];
+                    obj.landmark[3].y = cy + (anchor_h + 1) * landmark.channel(7)[index];
+                    obj.landmark[4].x = cx + (anchor_w + 1) * landmark.channel(8)[index];
+                    obj.landmark[4].y = cy + (anchor_h + 1) * landmark.channel(9)[index];
+                    obj.prob = prob;
 
-					faceobjects.push_back(obj);
-				}
+                    faceobjects.push_back(obj);
+                }
 
-				anchor_x += feat_stride;
-			}
+                anchor_x += feat_stride;
+            }
 
-			anchor_y += feat_stride;
-		}
-	}
+            anchor_y += feat_stride;
+        }
+    }
 
 }

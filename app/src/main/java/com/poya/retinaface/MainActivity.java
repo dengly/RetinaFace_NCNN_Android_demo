@@ -7,6 +7,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Bundle;
@@ -43,12 +44,10 @@ public class MainActivity extends Activity {
     private ImageView imageView;
     private Bitmap yourSelectedImage = null;
 
-    AppCompatEditText etMinFaceSize,etTestTimeCount,etThreadsNumber;
-    private int minFaceSize = 40;
-    private int testTimeCount = 10;
+    AppCompatEditText etMaxSize,etThreadsNumber;
     private int threadsNumber = 4;
-
-    private boolean maxFaceSetting = false;
+    private boolean doScale = false;
+    private int maxSize = 320;
 
     //新建一个 retinaface 类
     private RetinaFace retinaface = new RetinaFace();
@@ -92,9 +91,12 @@ public class MainActivity extends Activity {
 
         //拷贝模型到sd卡
         try {
-
             copyBigDataToSD("mnet.25-opt.bin");
             copyBigDataToSD("mnet.25-opt.param");
+
+            copyBigDataToSD("mnet25_detect_ncnn.bin");
+            copyBigDataToSD("mnet25_detect_ncnn.param");
+
             copyBigDataToSD("mnet_detect_ncnn.param");
             copyBigDataToSD("mnet_detect_ncnn.bin");
         } catch (IOException e) {
@@ -109,10 +111,8 @@ public class MainActivity extends Activity {
         infoResult = (TextView) findViewById(R.id.infoResult);
         imageView = (ImageView) findViewById(R.id.imageView);
 
-        etMinFaceSize = (AppCompatEditText) findViewById(R.id.etMinFaceSize);
-        etTestTimeCount = (AppCompatEditText) findViewById(R.id.etTestTimeCount);
+        etMaxSize = (AppCompatEditText) findViewById(R.id.etMaxSize);
         etThreadsNumber = (AppCompatEditText) findViewById(R.id.etThreadsNumber);
-
         ToggleButton mToggleBt = (ToggleButton) findViewById(R.id.toggle_bt);
         mToggleBt.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
@@ -121,11 +121,11 @@ public class MainActivity extends Activity {
                 if (isChecked) {
                     Toast.makeText(getApplication(), "打开只检测最大人脸功能", Toast.LENGTH_SHORT)
                             .show();
-                    maxFaceSetting = true;
+                    doScale = true;
                 } else {
                     Toast.makeText(getApplication(), "关闭只检测最大人脸功能", Toast.LENGTH_SHORT)
                             .show();
-                    maxFaceSetting = false;
+                    doScale = false;
                 }
             }
         });
@@ -147,8 +147,7 @@ public class MainActivity extends Activity {
                 if (yourSelectedImage == null)
                     return;
 
-                minFaceSize = Integer.valueOf(TextUtils.isEmpty(etMinFaceSize.getText().toString()) ? "40" : etMinFaceSize.getText().toString());
-                testTimeCount = Integer.valueOf(TextUtils.isEmpty(etTestTimeCount.getText().toString()) ? "10" : etTestTimeCount.getText().toString());
+                maxSize = Integer.valueOf(TextUtils.isEmpty(etMaxSize.getText().toString()) ? "320" : etMaxSize.getText().toString());
                 threadsNumber = Integer.valueOf(TextUtils.isEmpty(etThreadsNumber.getText().toString()) ? "4" : etThreadsNumber.getText().toString());
 
                 if (threadsNumber != 1&&threadsNumber != 2&&threadsNumber != 4&&threadsNumber != 8){
@@ -157,39 +156,44 @@ public class MainActivity extends Activity {
                     return;
                 }
 
-                Log.i(TAG, "最小人脸："+minFaceSize);
-                //mtcnn.SetMinFaceSize(minFaceSize);
-                //mtcnn.SetTimeCount(testTimeCount);
                 //设置线程数
                 retinaface.SetThreadsNumber(threadsNumber);
                 Log.i(TAG, "设置线程为："+threadsNumber);
 
+                float scale = 1;
+                boolean isScale = false;
+                Bitmap scaleBitmap;
+                if(doScale){
+                    boolean isHorizontal = true;
+                    if(yourSelectedImage.getWidth() < yourSelectedImage.getHeight()){
+                        isHorizontal = false;
+                    }
+                    if(isHorizontal && yourSelectedImage.getWidth() <= maxSize || yourSelectedImage.getHeight() <= maxSize){
+                        scaleBitmap = yourSelectedImage;
+                    }else{
+                        isScale = true;
+                        Matrix matrix=new Matrix();
+                        scale = isHorizontal ? 1f * maxSize / yourSelectedImage.getWidth() : 1f * maxSize / yourSelectedImage.getHeight();
+                        matrix.setScale(scale,scale);
+                        scaleBitmap = Bitmap.createBitmap(yourSelectedImage, 0, 0, yourSelectedImage.getWidth(), yourSelectedImage.getHeight(), matrix, true);
+                    }
+                }else{
+                    scaleBitmap = yourSelectedImage;
+                }
                 //检测流程
-                int width = yourSelectedImage.getWidth();
-                int height = yourSelectedImage.getHeight();
-                byte[] imageDate = getPixelsRGBA(yourSelectedImage);
+                int width = scaleBitmap.getWidth();
+                int height = scaleBitmap.getHeight();
+                byte[] imageDate = getPixelsRGBA(scaleBitmap);
 
                 long timeDetectFace = System.currentTimeMillis();
-                int faceInfo[] = null;
-                if(!maxFaceSetting) {
-                    //检测所有人脸
-                    //faceInfo = mtcnn.FaceDetect(imageDate, width, height, 4);
-                    faceInfo = retinaface.FaceDetect(imageDate, width, height, 4);
-                    Log.i(TAG, "检测所有人脸");
-                } else{
-                    // 只检测最大人脸
-                    //faceInfo = mtcnn.MaxFaceDetect(imageDate, width, height, 4);
-                    Log.i(TAG, "检测最大人脸");
-                }
+                //检测所有人脸
+                int[] faceInfo = retinaface.FaceDetect(imageDate, width, height, 4);
                 timeDetectFace = System.currentTimeMillis() - timeDetectFace;
-                //Log.i(TAG, "人脸平均检测时间："+timeDetectFace/testTimeCount);
-                Log.i(TAG, "人脸检测时间：" + timeDetectFace +" ms" );
+                Log.i(TAG, "检测所有人脸, 人脸检测时间：" + timeDetectFace +" ms" );
 
                if(faceInfo!=null && faceInfo.length>1){
                    int faceNum = faceInfo[0];
-                   //infoResult.setText("图宽："+width+"高："+height+"人脸平均检测时间："+timeDetectFace/testTimeCount+" 数目：" + faceNum);
                    infoResult.setText("图宽:"+width+" 图高:"+height+" 线程数:"+ threadsNumber +" 检测时间:"+ timeDetectFace +" 人脸数目:" + faceNum);
-                   //infoResult.setText("人脸检测时间："+ timeDetectFace +"    检出人脸数目：" + faceNum);
                    Log.i(TAG, "图宽："+width+"高："+height+" 人脸数目：" + faceNum );
 
                    Bitmap drawBitmap = yourSelectedImage.copy(Bitmap.Config.ARGB_8888, true);
@@ -197,20 +201,37 @@ public class MainActivity extends Activity {
                        int left, top, right, bottom;
                        Canvas canvas = new Canvas(drawBitmap);
                        Paint paint = new Paint();
-                       left = faceInfo[1+14*i];
-                       top = faceInfo[2+14*i];
-                       right = faceInfo[3+14*i];
-                       bottom = faceInfo[4+14*i];
+
+                       //画特征点
+                       if(isScale){
+                           left = (int)(faceInfo[1+14*i] / scale);
+                           top = (int)(faceInfo[2+14*i] / scale);
+                           right = (int)(faceInfo[3+14*i] / scale);
+                           bottom = (int)(faceInfo[4+14*i] / scale);
+                       }else{
+                           left = faceInfo[1+14*i];
+                           top = faceInfo[2+14*i];
+                           right = faceInfo[3+14*i];
+                           bottom = faceInfo[4+14*i];
+                       }
                        paint.setColor(Color.RED);
                        paint.setStyle(Paint.Style.STROKE);//不填充
-                       paint.setStrokeWidth(5);  //线的宽度
+                       paint.setStrokeWidth(2);  //线的宽度
                        canvas.drawRect(left, top, right, bottom, paint);
                        //画特征点
-                       canvas.drawPoints(new float[]{faceInfo[5+14*i],faceInfo[10+14*i],
-                                                     faceInfo[6+14*i],faceInfo[11+14*i],
-                                                     faceInfo[7+14*i],faceInfo[12+14*i],
-                                                     faceInfo[8+14*i],faceInfo[13+14*i],
-                                                     faceInfo[9+14*i],faceInfo[14+14*i]}, paint);//画多个点
+                       if(isScale){
+                           canvas.drawPoints(new float[]{faceInfo[5+14*i] / scale,faceInfo[10+14*i] / scale,
+                                   faceInfo[6+14*i] / scale,faceInfo[11+14*i] / scale,
+                                   faceInfo[7+14*i] / scale,faceInfo[12+14*i] / scale,
+                                   faceInfo[8+14*i] / scale,faceInfo[13+14*i] / scale,
+                                   faceInfo[9+14*i] / scale,faceInfo[14+14*i] / scale}, paint);//画多个点
+                       }else{
+                           canvas.drawPoints(new float[]{faceInfo[5+14*i],faceInfo[10+14*i],
+                                   faceInfo[6+14*i],faceInfo[11+14*i],
+                                   faceInfo[7+14*i],faceInfo[12+14*i],
+                                   faceInfo[8+14*i],faceInfo[13+14*i],
+                                   faceInfo[9+14*i],faceInfo[14+14*i]}, paint);//画多个点
+                       }
                    }
                    imageView.setImageBitmap(drawBitmap);
                 }else{
@@ -219,8 +240,6 @@ public class MainActivity extends Activity {
 
             }
         });
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
     }
 
@@ -237,9 +256,6 @@ public class MainActivity extends Activity {
                     Bitmap bitmap = decodeUri(selectedImage);
 
                     Bitmap rgba = bitmap.copy(Bitmap.Config.ARGB_8888, true);
-
-                    // resize to 227x227
-                    //yourSelectedImage = Bitmap.createScaledBitmap(rgba, 227, 227, false);
                     yourSelectedImage = rgba;
 
                     imageView.setImageBitmap(yourSelectedImage);

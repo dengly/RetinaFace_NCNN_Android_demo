@@ -12,34 +12,15 @@
         <android.support.v7.widget.AppCompatTextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="最小人脸大小(大于20): " />
+            android:text="缩小图片处理的最大图片宽高: " />
 
         <android.support.v7.widget.AppCompatEditText
-            android:id="@+id/etMinFaceSize"
+            android:id="@+id/etMaxSize"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="40"
+            android:hint="320"
             android:inputType="number"
-            android:text="40" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <android.support.v7.widget.AppCompatTextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="循环测试次数(默认10次): " />
-
-        <android.support.v7.widget.AppCompatEditText
-            android:id="@+id/etTestTimeCount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="10"
-            android:inputType="number"
-            android:text="10" />
+            android:text="320" />
     </LinearLayout>
 
     <LinearLayout
@@ -83,10 +64,9 @@
             android:background="@android:color/transparent"
             android:button="@drawable/toggle_btn"
             android:checked="false"
-            android:text="只检测最大人脸："
-            android:textOff="只检测最大人脸：关"
-            android:textOn="只检测最大人脸：开"
-            android:visibility="gone"/>
+            android:text="缩小图片处理"
+            android:textOff="缩小图片处理：关"
+            android:textOn="缩小图片处理：开" />
     </LinearLayout>
 
     <TextView
